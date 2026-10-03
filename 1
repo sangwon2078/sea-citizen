@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background: #f4f7f6; color: #333; display: flex; flex-direction: column; height: 100vh; }
+        header { background: #0052d4; color: white; padding: 16px; text-align: center; }
+        main { flex: 1; padding: 16px; overflow-y: auto; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .btn { flex: 1; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-blue { background: #0052d4; color: white; }
+        .btn-gray { background: #eee; color: #333; }
+        nav { display: flex; background: white; border-top: 1px solid #ddd; }
+        .tab-btn { flex: 1; border: none; background: none; padding: 12px 0; color: #777; cursor: pointer; font-size: 0.9rem; }
+        .tab-btn.active { color: #0052d4; font-weight: bold; }
+        #map { height: 300px; border-radius: 8px; width: 100%; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🌊 바다시민 (Sea-Citizen)</h1>
+        <p>시민참여형 해양 탐지 & 모니터링</p>
+    </header>
+
+    <main>
+        <!-- 1. 사진 관측 탭 (사진 업로드 + 미리보기 기능 포함) -->
+        <section id="tab-upload" class="tab-content active">
+            <div class="card">
+                <h2 style="margin-bottom: 10px;">📸 해양 생물 탐지하기</h2>
+                <p style="font-size: 0.85rem; color: #666; margin-bottom: 15px;">해양 생물 사진을 업로드해 보세요.</p>
+
+                <input type="file" id="camera-input" accept="image/*" capture="environment" style="display: none;" onchange="handleImage(event)">
+                <input type="file" id="gallery-input" accept="image/*" style="display: none;" onchange="handleImage(event)">
+
+                <div id="upload-btns" style="display: flex; gap: 10px;">
+                    <button class="btn btn-blue" onclick="document.getElementById('camera-input').click()">📷 카메라 촬영</button>
+                    <button class="btn btn-gray" onclick="document.getElementById('gallery-input').click()">🖼️ 갤러리 선택</button>
+                </div>
+
+                <div id="preview-box" style="display: none; text-align: center; margin-top: 15px;">
+                    <img id="preview-img" src="" style="width: 100%; max-height: 250px; object-fit: cover; border-radius: 8px;">
+                    <button class="btn btn-blue" style="width: 100%; margin-top: 10px;" onclick="alert('3단계에서 GPS 수집 및 AI 분석이 시작됩니다!')">🔍 AI 분석 요청하기</button>
+                    <button class="btn btn-gray" style="width: 100%; margin-top: 5px;" onclick="resetImage()">다시 선택</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. 개인 도감 탭 -->
+        <section id="tab-dex" class="tab-content">
+            <div class="card">
+                <h2>📖 나의 해양 도감</h2>
+                <p style="font-size: 0.85rem; color: #666; margin-top: 5px;">내가 관측한 해양 생물 목록이 여기에 저장됩니다.</p>
+            </div>
+        </section>
+
+        <!-- 3. 관찰 지도 탭 -->
+        <section id="tab-map" class="tab-content">
+            <div class="card">
+                <h2>🗺️️ 관찰 지도</h2>
+                <div id="map" style="margin-top: 10px;"></div>
+            </div>
+        </section>
+    </main>
+
+    <nav>
+        <button class="tab-btn active" onclick="showTab('upload')">📷 관측하기</button>
+        <button class="tab-btn" onclick="showTab('dex')">📚 개인도감</button>
+        <button class="tab-btn" onclick="showTab('map')">🗺️ 관찰지도</button>
+    </nav>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        function showTab(name) {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            if (name === 'upload') {
+                document.querySelectorAll('.tab-btn')[0].classList.add('active');
+                document.getElementById('tab-upload').classList.add('active');
+            } else if (name === 'dex') {
+                document.querySelectorAll('.tab-btn')[1].classList.add('active');
+                document.getElementById('tab-dex').classList.add('active');
+            } else if (name === 'map') {
+                document.querySelectorAll('.tab-btn')[2].classList.add('active');
+                document.getElementById('tab-map').classList.add('active');
+                setTimeout(() => { map.invalidateSize(); }, 200);
+            }
+        }
+
+        const map = L.map('map').setView([35.1795543, 129.0756416], 11);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        function handleImage(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                document.getElementById('preview-img').src = evt.target.result;
+                document.getElementById('preview-box').style.display = 'block';
+                document.getElementById('upload-btns').style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function resetImage() {
+            document.getElementById('preview-box').style.display = 'none';
+            document.getElementById('upload-btns').style.display = 'flex';
+        }
+    </script>
+</body>
+</html>
